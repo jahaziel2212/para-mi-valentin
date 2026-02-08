@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tengo algo para ti...</title>
+    <style>
+        body {
+            margin: 0; padding: 0; font-family: 'Arial', sans-serif;
+            background-color: #fff0f3; height: 100vh;
+            display: flex; justify-content: center; align-items: center;
+            overflow: hidden; text-align: center;
+            /* Asegura que los clics en la pantalla final se detecten en todo el cuerpo */
+            position: relative; 
+        }
+
+        #pantalla-sorpresa {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: radial-gradient(circle, #ff4d6d, #880e4f);
+            z-index: 100; display: flex; justify-content: center;
+            align-items: center; flex-direction: column; color: white;
+            transition: all 0.8s ease;
+        }
+
+        .sobre { font-size: 80px; cursor: pointer; animation: vibrar 1.5s infinite; }
+        @keyframes vibrar {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+        }
+
+        .container {
+            background: white; padding: 25px; border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            z-index: 10; max-width: 85%;
+            position: relative; /* Necesario para el z-index */
+        }
+
+        .gif-container img {
+            width: 250px; height: 250px; object-fit: cover;
+            border-radius: 15px; margin-bottom: 15px;
+        }
+
+        h1 { color: #d81b60; font-size: 1.5rem; margin-bottom: 20px; min-height: 80px; transition: 0.3s; }
+        
+        .botones { display: flex; flex-direction: column; align-items: center; gap: 15px; position: relative; }
+        
+        button {
+            padding: 12px 25px; font-size: 1.1rem; border: none;
+            border-radius: 50px; cursor: pointer; font-weight: bold; transition: transform 0.2s ease;
+        }
+
+        #siBtn { background-color: #4caf50; color: white; z-index: 20; }
+        
+        #noBtn { 
+            background-color: #f44336; color: white; 
+            position: relative;
+            z-index: 15;
+            transition: 0.1s; 
+        }
+        
+        .oculto { display: none !important; }
+        .fade { opacity: 0; }
+
+        /* Corazones de fondo que flotan hacia arriba */
+        .corazon-fondo {
+            position: absolute; color: #ff4d6d; pointer-events: none;
+            animation: flotarUp 4s linear forwards; z-index: 1;
+            opacity: 0.7;
+        }
+        @keyframes flotarUp {
+            0% { transform: translateY(100vh); opacity: 1; }
+            100% { transform: translateY(-10vh); opacity: 0; }
+        }
+
+        /* NUEVO: Corazones tipo fuegos artificiales (caída) */
+        .corazon-firework {
+            position: absolute;
+            pointer-events: none;
+            z-index: 99; /* Por encima de casi todo */
+            animation: explosionCaida 1.5s ease-out forwards;
+        }
+
+        /* La animación usa variables CSS (--tx, --ty) que definimos con JS para la dirección */
+        @keyframes explosionCaida {
+            0% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+            100% { transform: translate(calc(-50% + var(--tx)), calc(-50% + var(--ty))) scale(0.5); opacity: 0; }
+        }
+    </style>
+</head>
+<body>
+
+    <div id="pantalla-sorpresa">
+        <div class="sobre" onclick="abrir()">📩</div>
+        <h2>¡Tengo una sorpresa para ti!</h2>
+        <p>Toca el sobre...</p>
+    </div>
+
+    <audio id="m1" loop><source src="corridos_oni.mp3" type="audio/mp3"></audio>
+    <audio id="m2" loop><source src="new_eyes.mp3" type="audio/mp3"></audio>
+
+    <div id="contenido" class="oculto">
+        <div class="container">
+            <div id="pregunta">
+                <div class="gif-container">
+                    <img id="imgDinamica" src="gato_flor.jpg" alt="Imagen">
+                </div>
+                <h1 id="textoPregunta">¿Quieres ser mi San Valentín?</h1>
+                <div class="botones" id="contenedorBotones">
+                    <button id="siBtn">¡SÍ!</button>
+                    <button id="noBtn">No</button>
+                </div>
+            </div>
+
+            <div id="celebracion" class="oculto">
+                <div class="gif-container">
+                    <img src="gato_flor.jpg" alt="Celebración">
+                </div>
+                <h1>¡SABÍA QUE DIRÍAS QUE SÍ! ❤️</h1>
+                <p style="color:#d81b60; font-size: 0.9rem;">(Haz click en la pantalla para celebrar 🎉)</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const m1 = document.getElementById('m1');
+        const m2 = document.getElementById('m2');
+        const img = document.getElementById('imgDinamica');
+        const siBtn = document.getElementById('siBtn');
+        const noBtn = document.getElementById('noBtn');
+        const texto = document.getElementById('textoPregunta');
+        const celebracionDiv = document.getElementById('celebracion');
+
+        let clickCount = 0;
+        let tamanoSi = 1;
+        let escapando = false;
+        let modoCelebracion = false; // Para saber si activar los fuegos artificiales
+
+        function abrir() {
+            document.getElementById('pantalla-sorpresa').classList.add('fade');
+            setTimeout(() => {
+                document.getElementById('pantalla-sorpresa').classList.add('oculto');
+                document.getElementById('contenido').classList.remove('oculto');
+            }, 800);
+            m1.play();
+            // Corazones de fondo suaves
+            setInterval(crearCorazonFondo, 400);
+        }
+
+        function moverBotonNo() {
+            if (!escapando) return;
+            const x = Math.random() * (window.innerWidth - noBtn.offsetWidth);
+            const y = Math.random() * (window.innerHeight - noBtn.offsetHeight);
+            noBtn.style.position = "fixed";
+            noBtn.style.left = x + "px";
+            noBtn.style.top = y + "px";
+        }
+
+        noBtn.addEventListener('click', () => {
+            clickCount++;
+            noBtn.innerText = "No"; // El botón siempre dice No
+
+            if (clickCount === 1) {
+                img.src = "llorar_1.jpg";
+                texto.innerText = "estás segura? 💔";
+                tamanoSi += 0.05;
+            } else if (clickCount === 2) {
+                img.src = "llorando_2.gif";
+                texto.innerText = "piensalo bien 🥺";
+                tamanoSi += 0.05;
+            } else if (clickCount === 3) {
+                img.src = "llorando_3.gif";
+                texto.innerText = "de verdad me vas a decir que no? 😭";
+                tamanoSi += 0.05;
+            } else if (clickCount >= 4) {
+                img.src = "enojado_1.gif";
+                texto.innerText = "No me dejas otra opción...";
+                escapando = true;
+                moverBotonNo();
+                tamanoSi += 1.5; 
+            }
+            siBtn.style.transform = `scale(${tamanoSi})`;
+        });
+
+        noBtn.addEventListener('mouseover', () => { if (escapando) moverBotonNo(); });
+        noBtn.addEventListener('touchstart', (e) => { if (escapando) { e.preventDefault(); moverBotonNo(); } });
+
+        siBtn.addEventListener('click', () => {
+            document.getElementById('pregunta').classList.add('oculto');
+            celebracionDiv.classList.remove('oculto');
+            m1.pause(); m1.currentTime = 0; m2.play();
+            document.body.style.backgroundColor = "#ffb3c1";
+            
+            // Activar modo celebración para los clicks
+            modoCelebracion = true;
+            
+            // Lluvia de fondo más intensa
+            setInterval(crearCorazonFondo, 150);
+        });
+
+        // Función para corazones que flotan hacia arriba (fondo)
+        function crearCorazonFondo() {
+            const c = document.createElement('div');
+            c.className = 'corazon-fondo';
+            c.innerHTML = '❤️';
+            c.style.left = Math.random() * 100 + 'vw';
+            c.style.fontSize = (Math.random() * 20 + 10) + 'px';
+            document.body.appendChild(c);
+            setTimeout(() => c.remove(), 4000);
+        }
+
+        // NUEVO: Detector de clicks en toda la pantalla para fuegos artificiales
+        document.addEventListener('click', (e) => {
+            if (!modoCelebracion) return; // Solo funciona al final
+            
+            // Crear una explosión de 12 corazones en el punto del click
+            for(let i = 0; i < 12; i++) {
+                crearFirework(e.clientX, e.clientY);
+            }
+        });
+
+        // NUEVO: Función para crear un corazón de fuego artificial
+        function crearFirework(x, y) {
+            const c = document.createElement('div');
+            c.className = 'corazon-firework';
+            // Puedes variar los emojis aquí
+            const emojis = ['❤️', '💖', '💥', '✨', '💕'];
+            c.innerHTML = emojis[Math.floor(Math.random() * emojis.length)];
+            
+            c.style.left = x + 'px';
+            c.style.top = y + 'px';
+            c.style.fontSize = (Math.random() * 20 + 15) + 'px';
+            
+            // Calcular dirección aleatoria para la explosión y caída
+            const angle = Math.random() * Math.PI * 2; // Dirección aleatoria (360 grados)
+            const distance = Math.random() * 150 + 50; // Qué tan lejos explota
+            
+            // Calculamos el destino final (tx, ty) usando trigonometría básica
+            // Añadimos un valor positivo extra a 'ty' para simular gravedad (que caigan)
+            const tx = Math.cos(angle) * distance + 'px';
+            const ty = (Math.sin(angle) * distance + 200) + 'px'; // +200 para que caigan hacia abajo
+            
+            // Pasamos estos valores al CSS
+            c.style.setProperty('--tx', tx);
+            c.style.setProperty('--ty', ty);
+            
+            document.body.appendChild(c);
+            setTimeout(() => c.remove(), 1500); // Se borran después de la animación
+        }
+    </script>
+</body>
+</html>
